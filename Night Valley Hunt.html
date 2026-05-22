@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Night Valley Hunt</title>
+
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        overflow: hidden;
+        background: linear-gradient(to bottom, #040512, #0a1030, #050816);
+      }
+
+      /*  STARS */
+      .star {
+        position: absolute;
+        width: 2px;
+        height: 2px;
+        background: white;
+        border-radius: 50%;
+        opacity: 0.7;
+      }
+
+      /*  MIST */
+      .mist {
+        position: absolute;
+        width: 120%;
+        height: 120%;
+        background: radial-gradient(
+          circle,
+          rgba(255, 255, 255, 0.06),
+          transparent 60%
+        );
+        filter: blur(60px);
+      }
+
+      /*  MOUNTAINS */
+      .mountain {
+        position: absolute;
+        bottom: 120px;
+        width: 0;
+        height: 0;
+      }
+
+      .m1 {
+        border-left: 340px solid transparent;
+        border-right: 340px solid transparent;
+        border-bottom: 480px solid #070a18;
+        left: -140px;
+      }
+      .m2 {
+        border-left: 320px solid transparent;
+        border-right: 320px solid transparent;
+        border-bottom: 430px solid #0b1230;
+        left: 200px;
+      }
+      .m3 {
+        border-left: 360px solid transparent;
+        border-right: 360px solid transparent;
+        border-bottom: 500px solid #050817;
+        right: -180px;
+      }
+
+      /*  MOON */
+      .moon {
+        position: absolute;
+        top: 60px;
+        right: 120px;
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        background: radial-gradient(circle, #e6f0ff, #8aa6ff);
+        box-shadow: 0 0 90px rgba(120, 150, 255, 0.25);
+      }
+
+      /* GAME WRAP */
+      .wrap {
+        position: relative;
+        z-index: 10;
+      }
+
+      /* CANVAS */
+      canvas {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 18px;
+      }
+
+      /* UI */
+      .ui {
+        position: absolute;
+        top: -60px;
+        width: 100%;
+        display: flex;
+        justify-content: space-between;
+        color: #d7e4ff;
+        font-size: 18px;
+      }
+
+      .box {
+        background: rgba(0, 0, 0, 0.35);
+        padding: 10px 14px;
+        border-radius: 10px;
+      }
+
+      /* GAME OVER */
+      .over {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        flex-direction: column;
+        background: rgba(0, 0, 0, 0.45);
+        visibility: hidden;
+        border-radius: 18px;
+      }
+
+      /* START MENU */
+      .menu {
+        position: absolute;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.7);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        flex-direction: column;
+        color: white;
+        z-index: 999;
+      }
+
+      .menu h1 {
+        font-size: 40px;
+        margin-bottom: 10px;
+      }
+
+      .menu p {
+        max-width: 400px;
+        text-align: center;
+        margin: 5px 0;
+        opacity: 0.85;
+      }
+
+      button {
+        margin-top: 15px;
+        padding: 12px 25px;
+        border: none;
+        border-radius: 10px;
+        background: #6b7cff;
+        color: white;
+        cursor: pointer;
+        font-size: 16px;
+      }
+
+      button:hover {
+        background: #5567ff;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="mist"></div>
+    <div class="moon"></div>
+
+    <div class="mountain m1"></div>
+    <div class="mountain m2"></div>
+    <div class="mountain m3"></div>
+
+    <!--  START MENU -->
+    <div class="menu" id="menu">
+      <h1>🌙 Night Valley Hunt</h1>
+
+      <p>🐍 Survive the night forest</p>
+      <p>🐺 3 wolves will hunt you</p>
+      <p>🍎 Eat food to grow stronger</p>
+      <p>💀 If wolves or wall touch you → Game Over</p>
+
+      <button onclick="startGame()">Start Game</button>
+    </div>
+
+    <div class="wrap">
+      <div class="ui">
+        <div class="box">🐍 Score: <span id="score">0</span></div>
+        <div class="box">🐺 Wolves: 3</div>
+      </div>
+
+      <canvas id="game" width="600" height="600"></canvas>
+
+      <div class="over" id="over">
+        <h1 style="color: white">Hunted in the Night</h1>
+        <button onclick="restart()">Restart</button>
+      </div>
+    </div>
+
+    <script>
+      /* stars */
+      for (let i = 0; i < 90; i++) {
+        let s = document.createElement("div");
+        s.className = "star";
+        s.style.top = Math.random() * 100 + "vh";
+        s.style.left = Math.random() * 100 + "vw";
+        document.body.appendChild(s);
+      }
+
+      const canvas = document.getElementById("game");
+      const ctx = canvas.getContext("2d");
+
+      const scoreEl = document.getElementById("score");
+      const menu = document.getElementById("menu");
+      const over = document.getElementById("over");
+
+      const grid = 25;
+      const count = canvas.width / grid;
+
+      let snake = [{ x: 10, y: 10 }];
+      let dir = { x: 1, y: 0 };
+
+      let food = { x: 15, y: 15 };
+
+      let wolves = [
+        { x: 18, y: 18 },
+        { x: 5, y: 16 },
+        { x: 20, y: 8 },
+      ];
+
+      let score = 0;
+      let speed = 110;
+      let loop;
+
+      /*  START */
+      function startGame() {
+        menu.style.display = "none";
+        loop = setInterval(game, speed);
+      }
+
+      /* FOOD */
+      function randomFood() {
+        food.x = Math.floor(Math.random() * count);
+        food.y = Math.floor(Math.random() * count);
+      }
+
+      /* BOARD */
+      function drawBoard() {
+        for (let x = 0; x < count; x++) {
+          for (let y = 0; y < count; y++) {
+            ctx.fillStyle =
+              (x + y) % 2 == 0 ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.03)";
+            ctx.fillRect(x * grid, y * grid, grid, grid);
+          }
+        }
+      }
+
+      /*  SNAKE */
+      function drawSnake() {
+        snake.forEach((s, i) => {
+          let px = s.x * grid;
+          let py = s.y * grid;
+
+          ctx.fillStyle = i == 0 ? "#d9e7ff" : "#8fb2ff";
+          ctx.shadowColor = "rgba(160,180,255,0.4)";
+          ctx.shadowBlur = 10;
+          ctx.fillRect(px + 2, py + 2, grid - 4, grid - 4);
+          ctx.shadowBlur = 0;
+
+          if (i == 0) {
+            ctx.fillStyle = "#0b1020";
+            ctx.fillRect(px + 7, py + 8, 3, 3);
+            ctx.fillRect(px + 16, py + 8, 3, 3);
+          }
+        });
+      }
+
+      /*  WOLVES */
+      function drawWolves() {
+        wolves.forEach((w) => {
+          let px = w.x * grid;
+          let py = w.y * grid;
+
+          ctx.fillStyle = "#141824";
+          ctx.fillRect(px + 2, py + 2, grid - 4, grid - 4);
+
+          ctx.fillStyle = "#ff3b3b";
+          ctx.fillRect(px + 8, py + 8, 3, 3);
+          ctx.fillRect(px + 15, py + 8, 3, 3);
+        });
+      }
+
+      /* AI */
+      function moveWolves() {
+        wolves.forEach((w) => {
+          let dx = snake[0].x - w.x;
+          let dy = snake[0].y - w.y;
+
+          if (Math.random() < 0.5) {
+            if (Math.abs(dx) > Math.abs(dy)) {
+              w.x += dx > 0 ? 1 : -1;
+            } else {
+              w.y += dy > 0 ? 1 : -1;
+            }
+          }
+        });
+      }
+
+      /* FOOD */
+      function drawFood() {
+        ctx.fillStyle = "#ff4d6d";
+        ctx.beginPath();
+        ctx.arc(food.x * grid + 12, food.y * grid + 12, 9, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      /* UPDATE */
+      function update() {
+        let head = { x: snake[0].x + dir.x, y: snake[0].y + dir.y };
+
+        if (head.x < 0 || head.y < 0 || head.x >= count || head.y >= count) {
+          end();
+          return;
+        }
+
+        for (let s of snake) {
+          if (head.x == s.x && head.y == s.y) {
+            end();
+            return;
+          }
+        }
+
+        for (let w of wolves) {
+          if (head.x == w.x && head.y == w.y) {
+            end();
+            return;
+          }
+        }
+
+        snake.unshift(head);
+
+        if (head.x == food.x && head.y == food.y) {
+          score++;
+          scoreEl.innerText = score;
+          randomFood();
+        } else {
+          snake.pop();
+        }
+
+        moveWolves();
+      }
+
+      /* GAME LOOP */
+      function game() {
+        ctx.clearRect(0, 0, 600, 600);
+        drawBoard();
+        update();
+        drawFood();
+        drawSnake();
+        drawWolves();
+      }
+
+      /* END */
+      function end() {
+        clearInterval(loop);
+        over.style.visibility = "visible";
+      }
+
+      /* RESTART */
+      function restart() {
+        location.reload();
+      }
+
+      /* CONTROLS */
+      document.addEventListener("keydown", (e) => {
+        let k = e.key.toLowerCase();
+
+        if ((k == "arrowup" || k == "w") && dir.y != 1) dir = { x: 0, y: -1 };
+        if ((k == "arrowdown" || k == "s") && dir.y != -1) dir = { x: 0, y: 1 };
+        if ((k == "arrowleft" || k == "a") && dir.x != 1) dir = { x: -1, y: 0 };
+        if ((k == "arrowright" || k == "d") && dir.x != -1)
+          dir = { x: 1, y: 0 };
+      });
+    </script>
+  </body>
+</html>
